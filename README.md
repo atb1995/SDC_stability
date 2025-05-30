@@ -1,1 +1,1 @@
-Script to create stability plots for $\frac{dy}{dt} = f(y) + s(y) = i\lambday + i\gammay$. There are IMEX SDC and IMEX Euler stability functions. The code depends on qmat https://github.com/Parallel-in-Time/qmat/tree/main to generate nodes, Q matrices and weights.
+Script to create stability plots for $\frac{dy}{dt} = f(y) + s(y) = i \lambda y + i \gamma y$. There are IMEX SDC and IMEX Euler stability functions. The code depends on qmat https://github.com/Parallel-in-Time/qmat/tree/main to generate nodes, Q matrices and weights.
