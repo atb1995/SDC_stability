@@ -12,21 +12,12 @@ def imex_euler_stability(z1, z2):
     z2 = np.asarray(z2, dtype=np.complex128)
     return (1 + z2) / (1 - z1)
 
-def runge_kutta_stability(z1, z2, A, b):
-    """
-    Stability function for Runge-Kutta methods:
-    R(z1, z2) = b^T * exp(A * z1) * exp(A^T * z2)
-    where A is the Butcher tableau matrix and b is the vector of weights.
-    """
-    z1 = np.asarray(z1, dtype=np.complex128)
-    z2 = np.asarray(z2, dtype=np.complex128)
-    
-    exp_Az1 = np.linalg.matrix_power(np.eye(len(A)) + A * z1, 100)  # Approximate exp(A*z1)
-    exp_Az2 = np.linalg.matrix_power(np.eye(len(A)) + A.T * z2, 100)  # Approximate exp(A^T*z2)
-    
-    return b @ exp_Az1 @ exp_Az2
-
 def sdc_stability(dtf, dts, nodes, weights, Q, Qdelta_imp, Qdelta_exp, k):
+    """
+    Stability function for SDC methods:
+    R(dtf, dts) = 1 + (dtf + dts) * (weights @ u1)
+    where u1 is the result of the matrix-vector product after k sweeps.
+    """
     M = len(nodes)
     ones = np.ones((M, 1))
     I = np.eye(M)
@@ -38,6 +29,7 @@ def sdc_stability(dtf, dts, nodes, weights, Q, Qdelta_imp, Qdelta_exp, k):
     Mpower = I.copy()
     for i in range(k):
         Mpower = Linv @ R @ Mpower
+
     # Error term
     Lpower = Linv.copy()
     for i in range(1,k):
@@ -48,7 +40,7 @@ def sdc_stability(dtf, dts, nodes, weights, Q, Qdelta_imp, Qdelta_exp, k):
         Lpower += Mpoweri
 
 
-    # Post-processing: quadrature
+    # Finaly update over quadrature
     u1 = (Mpower + Lpower) @ ones
     sf = 1 + (dtf + dts) * (weights @ u1).item()
     return sf
@@ -57,8 +49,8 @@ M = 3
 k = 5
 
 qType = "RADAU-RIGHT"
-impsw = "MIN-SR-S"
-expsw = "MIN-SR-NS"
+impqd = "IE"
+expqd = "EE"
 nType= "LEGENDRE"
 
 # Coefficients or specific collocation method
@@ -66,24 +58,22 @@ nodes, weights, Q = genQCoeffs(
     "Collocation", nNodes=M, nodeType=nType, quadType=qType)
 
 # QDelta matrix from Implicit-Euler based SDC
-QDelta_imp = genQDeltaCoeffs("LU", nodes=nodes, Q=Q)
-QDelta_exp = genQDeltaCoeffs("EE", nodes=nodes)
+QDelta_imp = genQDeltaCoeffs(impqd, nodes=nodes, Q=Q)
+QDelta_exp = genQDeltaCoeffs(expqd, nodes=nodes)
 
-# Example grid
+# Grid
 x = np.linspace(-5, 5, 100)
 y = np.linspace(-4, 12, 100)
 X, Y = np.meshgrid(x, y)
 dtf = 1j*y
 dts = 1j*x
 
-# Define the IMEX SDC stability function R(z1, z2) here (depends on your method)
+# Calculate stability function R for each combination of dtf and dts
 R = np.zeros(X.shape, dtype=np.complex128)
 for i in range(np.shape(dtf)[0]):
     for j in range(np.shape(dts)[0]):
-        R[i, j] = sdc_stability(dtf[i], dts[j], nodes, weights, Q, QDelta_imp, QDelta_exp, k)  # Replace with actual stability function
-R_mod = np.abs(R) 
-print(np.max(R_mod))
-print(np.min(R_mod))
+        R[i, j] = sdc_stability(dtf[i], dts[j], nodes, weights, Q, QDelta_imp, QDelta_exp, k)
+R_mod = np.abs(R)
 
 # Cap R_mod values at 1.5 to cut off any contour bigger than 1.5
 R_mod_clipped = np.clip(R_mod, None, 1.5)
